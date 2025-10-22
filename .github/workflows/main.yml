@@ -91,6 +91,9 @@ jobs:
           ld.lld --version
           cd ..
           cd common
+          rm -rf Baseband-guard
+          rm -rf Baseband-guard@dcfe4a7
+          mv xinran Baseband-guard
           export KBUILD_BUILD_USER=XinRan♡
           export KBUILD_BUILD_HOST=Bai
           export LTO=thin SYSTEM_DLKM_RE_SIGN=0 BUILD_SYSTEM_DLKM=0 KMI_SYMBOL_LIST_STRICT_MODE=0
