@@ -1,0 +1,161 @@
+name: k50ultra-kernelbuild
+env:
+  TZ: Asia/Shanghai
+  CPU: 'sm8475'
+  FEIL: 'xiaomi'
+  ANDROID_VERSION: 'android12'
+  KERNEL_VERSION: '5.10'
+  KERNEL_NAME: 'Xinran_StarBai-Confidential'
+  KERNELSU_VARIANT: 'KernelSU-Next'
+  KERNELSU_BRANCH: 'next'
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_suffix:
+        description: '内核后缀(留空默认,开头别加连字符)'
+        required: false
+        type: string
+        default: ''      
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      ksuver: ${{ env.KSUVER }}
+    steps:
+      - name: 最大化建筑空间
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          swap-size-mb: 8192
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+
+      - name: 安装配置环境依赖
+        run: |
+          sudo apt-mark hold firefox
+          sudo apt update -y
+          sudo apt-get install curl bison flex make binutils dwarves git lld pahole zip perl make gcc python3 python-is-python3 bc libssl-dev libelf-dev -y
+      - name: 初始化源码仓库
+        run: |
+          rm -rf kernel_workspace && mkdir kernel_workspace && cd kernel_workspace
+          echo "正在克隆源码仓库..."
+          git clone --depth=1 https://github.com/Winkmoon/android_gki_kernel_5.10_common.git common -b android12-5.10-2025-09
+          echo "正在去除 ABI 保护 & 去除 dirty 后缀..."
+          rm common/android/abi_gki_protected_exports_* || true
+          for f in common/scripts/setlocalversion; do
+            sed -i 's/ -dirty//g' "$f"
+            sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
+          done
+          cd ..
+
+                  
+      - name: 添加制作名称
+        run: |
+          cd kernel_workspace
+          echo "替换内核版本后缀..."
+          if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
+            echo "当前内核版本后缀：${{ github.event.inputs.kernel_suffix }}"
+            for f in ./common/scripts/setlocalversion; do
+              sed -i "\$s|echo \"\\\$res\"|echo \"-${{ github.event.inputs.kernel_suffix }}\"|" "$f"
+            done
+          else
+            echo "当前内核版本后缀：${{ env.KERNEL_NAME }}"
+            for f in ./common/scripts/setlocalversion; do
+              sed -i "\$s|echo \"\\\$res\"|echo \"-${{ env.KERNEL_NAME }}\"|" "$f"
+            done
+          fi
+      - name: 设置 gnu 环境变量
+        run: |
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabihf-
+           
+      - name: 安装工具链并构建内核
+        run: |
+          cd kernel_workspace
+          sudo apt update
+          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf -y
+          sudo apt install wget
+          sudo apt-get install xz-utils
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/clang+llvm-19.1.7-aarch64-linux-gnu.tar.xz
+          mkdir xinran
+          tar -xvf clang+llvm-19.1.7-aarch64-linux-gnu.tar.xz -C xinran --strip-components=1
+          ls
+          cd ./xinran
+          CLANG_PATH=$(pwd)/bin
+          export PATH=$CLANG_PATH:$PATH
+          clang --version
+          ld.lld --version
+          cd ..
+          cd common
+          export KBUILD_BUILD_USER=XinRan♡
+          export KBUILD_BUILD_HOST=Bai
+          export LTO=thin SYSTEM_DLKM_RE_SIGN=0 BUILD_SYSTEM_DLKM=0 KMI_SYMBOL_LIST_STRICT_MODE=0
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+="-Wno-error -flto=thin" LDFLAGS+="-flto=thin" vendor/diting_defconfig
+         
+      - name: 应用patch_linux并修补内核
+        run: |
+          cd kernel_workspace/common/out/arch/arm64/boot
+          curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
+          chmod +x patch_linux
+          ./patch_linux
+          rm -f Image
+          mv oImage Image     
+          
+      - name: 克隆 AnyKernel3 并打包
+        run: |
+          cd kernel_workspace
+          git clone https://github.com/Winkmoon/AnyKernel3 --depth=1
+          rm -rf ./AnyKernel3/.git
+          cd AnyKernel3
+          cp ../common/out/arch/arm64/boot/Image ./Image
+          if [ ! -f ./Image ]; then
+            echo "未找到内核镜像文件，构建可能出错"
+            exit 1
+          fi
+          if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
+            zip -r ../ak3_fullksu_5.10_A12_${{ github.event.inputs.kernel_suffix }}.zip ./*
+          else
+            zip -r ../ak3_fullksu_5.10_A12_${{ env.KERNEL_NAME }}.zip ./*
+          fi
+      - name: 上传 ZIP 工件
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel_ZIP_Artifacts
+          path: ${{ github.workspace }}/kernel_workspace/*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      actions: read
+      
+    steps:
+      - name: 下载 ZIP 工件
+        uses: actions/download-artifact@v4
+        with:
+          name: Kernel_ZIP_Artifacts
+          path: ./release_zips
+
+      - name: 设置环境变量
+        run: |
+          if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
+            FULL_VERSION=${{ format('{0}.75-{1}', env.KERNEL_VERSION, github.event.inputs.kernel_suffix) }}
+            echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_ENV
+            export FULL_VERSION=$FULL_VERSION
+          else
+            FULL_VERSION=${{ format('{0}.75-{1}', env.KERNEL_VERSION, env.KERNEL_NAME) }}
+            echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_ENV
+            export FULL_VERSION=$FULL_VERSION
+          fi
+          TIME="$(TZ='Asia/Shanghai' date +'%y%m%d%H%M%S')"
+          TIME_FORM="$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')"
+          echo "TIME=$TIME" >> $GITHUB_ENV
+          echo "TIME_FORM=$TIME_FORM" >> $GITHUB_ENV
+          TAG_HEAD="xiaomi"
+          echo "TAG_HEAD=$TAG_HEAD" >> $GITHUB_ENV
