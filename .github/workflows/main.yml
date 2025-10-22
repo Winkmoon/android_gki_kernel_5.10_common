@@ -97,8 +97,10 @@ jobs:
           export KBUILD_BUILD_USER=XinRan♡
           export KBUILD_BUILD_HOST=Bai
           export LTO=thin SYSTEM_DLKM_RE_SIGN=0 BUILD_SYSTEM_DLKM=0 KMI_SYMBOL_LIST_STRICT_MODE=0
-          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+="-Wno-error -flto=thin" LDFLAGS+="-flto=thin" LTO=thin HOSTCFLAGS="-fno-lto" HOSTLDFLAGS="-fno-lto" gki_defconfig all
-         
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld HOSTCXX=clang++ O=out KCFLAGS+="-Wno-error -flto=thin" LDFLAGS+="-flto=thin" LTO=thin HOSTCFLAGS="-fno-lto" HOSTCXXFLAGS="-fno-lto" HOSTLDFLAGS="-fno-lto" gki_defconfig all
+
+
+
       - name: 应用patch_linux并修补内核
         run: |
           cd kernel_workspace/common/out/arch/arm64/boot
