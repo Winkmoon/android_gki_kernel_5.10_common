@@ -80,9 +80,9 @@ jobs:
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf -y
           sudo apt install wget
           sudo apt-get install xz-utils
-          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/clang+llvm-19.1.7-aarch64-linux-gnu.tar.xz
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.4/LLVM-21.1.4-Linux-X64.tar.xz
           mkdir xinran
-          tar -xvf clang+llvm-19.1.7-aarch64-linux-gnu.tar.xz -C xinran --strip-components=1
+          tar -xvf LLVM-21.1.4-Linux-X64.tar.xz -C xinran --strip-components=1
           ls
           cd ./xinran
           CLANG_PATH=$(pwd)/bin
