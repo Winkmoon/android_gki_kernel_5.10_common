@@ -5,7 +5,7 @@ env:
   FEIL: 'xiaomi'
   ANDROID_VERSION: 'android12'
   KERNEL_VERSION: '5.10'
-  KERNEL_NAME: 'Xinran_StarBai-Confidential'
+  KERNEL_NAME: 'Xinran_StarBai-diting'
   KERNELSU_VARIANT: 'KernelSU-Next'
   KERNELSU_BRANCH: 'next'
 
@@ -94,7 +94,7 @@ jobs:
           export KBUILD_BUILD_USER=XinRan♡
           export KBUILD_BUILD_HOST=Bai
           export LTO=thin SYSTEM_DLKM_RE_SIGN=0 BUILD_SYSTEM_DLKM=0 KMI_SYMBOL_LIST_STRICT_MODE=0
-          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+="-Wno-error -flto=thin" LDFLAGS+="-flto=thin" vendor/diting_defconfig
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+="-Wno-error -flto=thin" LDFLAGS+="-flto=thin" gki_defconfig
          
       - name: 应用patch_linux并修补内核
         run: |
